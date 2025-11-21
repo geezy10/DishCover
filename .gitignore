@@ -205,3 +205,26 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ---------------------------------
+# MEINE BACHELOR PROJEKT REGELN
+# ---------------------------------
+
+# PyCharm Ordner (unbedingt ignorieren)
+.idea/
+
+# Datensätze (Viel zu groß für GitHub!)
+data/
+*.csv
+*.zip
+
+# Bilder (Falls nicht im data Ordner)
+*.jpg
+*.jpeg
+*.png
+
+# Machine Learning Modelle (Können riesig werden)
+*.model
+*.h5
+*.pkl
+*.json
