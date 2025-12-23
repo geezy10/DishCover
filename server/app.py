@@ -3,7 +3,8 @@ import pickle
 import pandas as pd
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-
+import numpy as np
+from gensim.models import Word2Vec, Doc2Vec
 
 
 app =  Flask(__name__)
@@ -16,10 +17,13 @@ MODELS_DIR = os.path.join(DATA_DIR, "models")
 IMAGES_DIR = os.path.join(DATA_DIR, "images", "Food Images")
 meta_path = os.path.join(MODELS_DIR, "metadata.pkl")
 csv_path = os.path.join(DATA_DIR, "recipes.csv")
+model_path = '../data/models/word2vec.model'
 w2v_model = None
+d2v_model = None
 db_ingredients = None
 db_recipes = None
 df_recipes = None
+
 
 #load metadata (photos,..)
 if os.path.exists(meta_path):
@@ -32,13 +36,30 @@ elif os.path.exists(csv_path):
 else:
     print("no pkl or csv")
 
+
 #load w2v model
 try:
-    w2v_model = os.path.join(MODELS_DIR, "word2vec.model")
+    w2v_path = os.path.join(MODELS_DIR, "word2vec.model")
+    if os.path.exists(w2v_path):
+        w2v_model = Word2Vec.load(w2v_path)
+        print("loaded word2vec model")
+    else:
+        print("no word2vec model")
 except Exception as e:
     print(e)
 
-#load doc2vec model
+#load d2v model
+try:
+    d2v_path = os.path.join(MODELS_DIR, "doc2vec.model")
+    if os.path.exists(d2v_path):
+        d2v_model = Word2Vec.load(d2v_path)
+        print("loaded doc2vec model")
+    else:
+        print("no doc2vec model")
+except Exception as e:
+    print(e)
+
+#load doc2vec vectors
 try:
     doc_path = os.path.join(MODELS_DIR, "recipe_vectors.pkl")
     with open(doc_path, "rb") as f:
@@ -46,7 +67,9 @@ try:
 except Exception as e:
     print(e)
 
-#load ingredient vectors
+
+
+#load word2vec(ingredient) vectors
 try:
     ing_path = os.path.join(MODELS_DIR, "ingredient_vectors.pkl")
     if os.path.exists(ing_path):
@@ -64,10 +87,28 @@ def get_image_url(request, image_name):
         return None
 
     filename = str(image_name)
-    if not filename.lower().endswith(('.jpg','png','jpeg')):
+    if not filename.lower().endswith(('.jpg','.png','.jpeg')):
         filename = filename + '.jpg'
 
     return request.host_url + 'images/' + filename
+
+
+def calculate_similarity(vec_a, vec_b):
+    if vec_a is None or vec_b is None: return 0.0
+
+    #scalarproduct
+    dot = np.dot(vec_a, vec_b)
+
+    #length of vectors
+    norm_a = np.linalg.norm(vec_a)
+    norm_b = np.linalg.norm(vec_b)
+
+    #division / 0
+    if norm_a == 0 or norm_b == 0: return 0.0
+
+    return dot / (norm_a * norm_b)
+
+
 
 
 #--------------------------- endpoints ----------------------------------#
@@ -83,6 +124,75 @@ def status():
 @app.route('/images/<path:filename>')
 def images(filename):
     return send_from_directory(IMAGES_DIR, filename)
+
+
+@app.route('/recommend', methods=['POST'])
+def recommend():
+    data = request.get_json()
+    user_ingredients = data.get('ingredients', [])
+
+    input_vectors = []
+
+    for i in user_ingredients:
+        clean = i.lower().strip().replace(" ", "_")
+
+        #get the mathematical position for every ingredient
+        if clean in w2v_model.wv:
+            print(f"   ✅ '{clean}' found!")
+            similar_words = w2v_model.wv.most_similar(clean, topn=3)
+            print(f"    similarity:  {similar_words}")
+
+            input_vectors.append(w2v_model.wv[clean])
+        else:
+            print(f" '{clean}' not in the vocabular")
+
+    if not input_vectors:
+        return jsonify({"error": "no matching ingredients"}), 404
+
+    #calculate the mean from all input ingredients
+    query_vec = np.mean(input_vectors, axis=0)
+
+
+    #comparison of the mean and the database, get the id´s
+    results = []
+    for r_id, r_vec in db_ingredients.items():
+        score = calculate_similarity(query_vec, r_vec)
+        if score > 0.4:
+            results.append((r_id, score))
+
+    #sort
+    results.sort(key=lambda x: x[1], reverse=True)
+    top_results = results[:5]
+
+
+    response = []
+    print(f"\n best matches:")
+
+    #lookup the id with the associated data
+    for r_id, score in top_results:
+        try:
+            row = df_recipes.iloc[r_id]
+            title = row['Title']
+            img_name = row.get('Image_Name')
+            img_url = get_image_url(request, img_name)
+            ingredients_text = str(row['Ingredients'])[:50] + "..."
+
+            print(f"   Score: {score:.4f} | ID: {r_id} | {title}")
+
+            response.append({
+                "id": int(r_id),
+                "title": title,
+                "image": img_url,
+                "score": float(score),
+                "debug_ingredients": row['Ingredients']
+            })
+        except:
+            continue
+
+    return jsonify({"results": response})
+
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
