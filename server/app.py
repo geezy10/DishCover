@@ -131,14 +131,20 @@ def recommend():
     data = request.get_json()
     user_ingredients = data.get('ingredients', [])
 
-    input_vectors = []
 
+    user_filters = data.get('filters', {})
+    wants_vegetarian = user_filters.get('vegetarian', False)
+    wants_vegan = user_filters.get('vegan', False)
+    has_nut_allergy = user_filters.get('no_nuts', False)
+    print(f" 'search:' {user_ingredients} | 'filters:' {user_filters} ")
+
+    input_vectors = []
     for i in user_ingredients:
         clean = i.lower().strip().replace(" ", "_")
 
         #get the mathematical position for every ingredient
         if clean in w2v_model.wv:
-            print(f"   ✅ '{clean}' found!")
+            print(f"  '{clean}' found!")
             similar_words = w2v_model.wv.most_similar(clean, topn=3)
             print(f"    similarity:  {similar_words}")
 
@@ -152,7 +158,6 @@ def recommend():
     #calculate the mean from all input ingredients
     query_vec = np.mean(input_vectors, axis=0)
 
-
     #comparison of the mean and the database, get the id´s
     results = []
     for r_id, r_vec in db_ingredients.items():
@@ -162,21 +167,22 @@ def recommend():
 
     #sort
     results.sort(key=lambda x: x[1], reverse=True)
-    top_results = results[:5]
-
-
     response = []
     print(f"\n best matches:")
 
     #lookup the id with the associated data
-    for r_id, score in top_results:
+    for r_id, score in results:
         try:
             row = df_recipes.iloc[r_id]
-            title = row['Title']
-            img_name = row.get('Image_Name')
-            img_url = get_image_url(request, img_name)
-            ingredients_text = str(row['Ingredients'])[:50] + "..."
+            if wants_vegetarian and not row.get('is_vegetarian'):
+                continue
+            if wants_vegan and not row.get('is_vegan'):
+                continue
+            if has_nut_allergy and not row.get('has_nuts'):
+                continue
 
+            title = row['Title']
+            img_url = get_image_url(request, row.get('Image_Name'))
             print(f"   Score: {score:.4f} | ID: {r_id} | {title}")
 
             response.append({
@@ -184,11 +190,16 @@ def recommend():
                 "title": title,
                 "image": img_url,
                 "score": float(score),
-                "debug_ingredients": row['Ingredients']
+                "tags": {
+                    "vegetarian": bool (row['is_vegetarian']),
+                    "vegan": bool (row['is_vegan']),
+                    "nuts": bool (row['has_nuts']),
+                }
             })
+            if len(response) >= 20:
+                break
         except:
             continue
-
     return jsonify({"results": response})
 
 
