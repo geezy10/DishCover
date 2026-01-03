@@ -6,11 +6,10 @@ from flask_cors import CORS
 import numpy as np
 from gensim.models import Word2Vec, Doc2Vec
 
-
-app =  Flask(__name__)
+app = Flask(__name__)
 CORS(app)
 
-#server
+# server
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "..", "data")
 MODELS_DIR = os.path.join(DATA_DIR, "models")
@@ -24,8 +23,7 @@ db_ingredients = None
 db_recipes = None
 df_recipes = None
 
-
-#load metadata (photos,..)
+# load metadata (photos,..)
 if os.path.exists(meta_path):
     with open(meta_path, "rb") as f:
         df_recipes = pickle.load(f)
@@ -36,8 +34,7 @@ elif os.path.exists(csv_path):
 else:
     print("no pkl or csv")
 
-
-#load w2v model
+# load w2v model
 try:
     w2v_path = os.path.join(MODELS_DIR, "word2vec.model")
     if os.path.exists(w2v_path):
@@ -48,7 +45,7 @@ try:
 except Exception as e:
     print(e)
 
-#load d2v model
+# load d2v model
 try:
     d2v_path = os.path.join(MODELS_DIR, "doc2vec.model")
     if os.path.exists(d2v_path):
@@ -59,7 +56,7 @@ try:
 except Exception as e:
     print(e)
 
-#load doc2vec vectors
+# load doc2vec vectors
 try:
     doc_path = os.path.join(MODELS_DIR, "recipe_vectors.pkl")
     with open(doc_path, "rb") as f:
@@ -67,9 +64,7 @@ try:
 except Exception as e:
     print(e)
 
-
-
-#load word2vec(ingredient) vectors
+# load word2vec(ingredient) vectors
 try:
     ing_path = os.path.join(MODELS_DIR, "ingredient_vectors.pkl")
     if os.path.exists(ing_path):
@@ -87,7 +82,7 @@ def get_image_url(request, image_name):
         return None
 
     filename = str(image_name)
-    if not filename.lower().endswith(('.jpg','.png','.jpeg')):
+    if not filename.lower().endswith(('.jpg', '.png', '.jpeg')):
         filename = filename + '.jpg'
 
     return request.host_url + 'images/' + filename
@@ -96,22 +91,20 @@ def get_image_url(request, image_name):
 def calculate_similarity(vec_a, vec_b):
     if vec_a is None or vec_b is None: return 0.0
 
-    #scalarproduct
+    # scalarproduct
     dot = np.dot(vec_a, vec_b)
 
-    #length of vectors
+    # length of vectors
     norm_a = np.linalg.norm(vec_a)
     norm_b = np.linalg.norm(vec_b)
 
-    #division / 0
+    # division / 0
     if norm_a == 0 or norm_b == 0: return 0.0
 
     return dot / (norm_a * norm_b)
 
 
-
-
-#--------------------------- endpoints ----------------------------------#
+# --------------------------- endpoints ----------------------------------#
 @app.route('/status', methods=['GET'])
 def status():
     count = len(df_recipes) if df_recipes is not None else 0
@@ -131,7 +124,6 @@ def recommend():
     data = request.get_json()
     user_ingredients = data.get('ingredients', [])
 
-
     user_filters = data.get('filters', {})
     wants_vegetarian = user_filters.get('vegetarian', False)
     wants_vegan = user_filters.get('vegan', False)
@@ -142,7 +134,7 @@ def recommend():
     for i in user_ingredients:
         clean = i.lower().strip().replace(" ", "_")
 
-        #get the mathematical position for every ingredient
+        # get the mathematical position for every ingredient
         if clean in w2v_model.wv:
             print(f"  '{clean}' found!")
             similar_words = w2v_model.wv.most_similar(clean, topn=3)
@@ -155,22 +147,22 @@ def recommend():
     if not input_vectors:
         return jsonify({"error": "no matching ingredients"}), 404
 
-    #calculate the mean from all input ingredients
+    # calculate the mean from all input ingredients
     query_vec = np.mean(input_vectors, axis=0)
 
-    #comparison of the mean and the database, get the id´s
+    # comparison of the mean and the database, get the id´s
     results = []
     for r_id, r_vec in db_ingredients.items():
         score = calculate_similarity(query_vec, r_vec)
         if score > 0.4:
             results.append((r_id, score))
 
-    #sort
+    # sort
     results.sort(key=lambda x: x[1], reverse=True)
     response = []
     print(f"\n best matches:")
 
-    #lookup the id with the associated data
+    # lookup the id with the associated data
     for r_id, score in results:
         try:
             row = df_recipes.iloc[r_id]
@@ -191,9 +183,9 @@ def recommend():
                 "image": img_url,
                 "score": float(score),
                 "tags": {
-                    "vegetarian": bool (row['is_vegetarian']),
-                    "vegan": bool (row['is_vegan']),
-                    "nuts": bool (row['has_nuts']),
+                    "vegetarian": bool(row['is_vegetarian']),
+                    "vegan": bool(row['is_vegan']),
+                    "nuts": bool(row['has_nuts']),
                 }
             })
             if len(response) >= 20:
@@ -203,6 +195,62 @@ def recommend():
     return jsonify({"results": response})
 
 
+@app.route('/recipe/<int:recipe_id>/similar', methods=['GET'])
+def similar(recipe_id):
+    if db_recipes is None:
+        return jsonify("error, no Doc2Vec Database loaded"), 503
+
+    if recipe_id not in db_recipes:
+        return jsonify({"error": "no such recipe"}), 404
+
+    print(f"search similarity to recipe: {recipe_id}")
+
+    query_vec = db_recipes[recipe_id]
+    candidates = []
+
+    for r_id, r_vec in db_recipes.items():
+        if r_id == recipe_id:
+            continue
+        score = calculate_similarity(query_vec, r_vec)
+
+        if score > 0.4:
+            candidates.append((r_id, score))
+
+    candidates.sort(key=lambda x: x[1], reverse=True)
+    top_results = candidates[:10]
+
+    response = []
+
+    try:
+        original_title = df_recipes.iloc[recipe_id]['Title']
+    except:
+        "No Title"
+
+    for r_id, score in top_results:
+        try:
+            row = df_recipes.iloc[r_id]
+
+            img_url = get_image_url(request, row.get('Image_Name'))
+
+            response.append({
+                "id": int(r_id),
+                "title": row['Title'],
+                "image": img_url,
+                "score": float(score),
+                "tags": {
+                    "vegetarian": bool(row.get('is_vegetarian', False)),
+                    "vegan": bool(row.get('is_vegan', False))
+                }
+            })
+        except Exception as e:
+            print(e)
+            continue
+
+    return jsonify({
+        "original_id": recipe_id,
+        "original_title": original_title,
+        "results": response
+    })
 
 
 if __name__ == '__main__':
