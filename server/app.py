@@ -5,6 +5,8 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import numpy as np
 from gensim.models import Word2Vec, Doc2Vec
+from nltk.stem import WordNetLemmatizer
+lemmatizer = WordNetLemmatizer()
 
 app = Flask(__name__)
 CORS(app)
@@ -147,6 +149,7 @@ def recommend():
     input_vectors = []
     for i in user_ingredients:
         clean = i.lower().strip().replace(" ", "_")
+        clean = lemmatizer.lemmatize(clean)
 
         # get the mathematical position for every ingredient
         if clean in w2v_model.wv:
