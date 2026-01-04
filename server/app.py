@@ -91,7 +91,7 @@ def get_image_url(request, image_name):
 def calculate_similarity(vec_a, vec_b):
     if vec_a is None or vec_b is None: return 0.0
 
-    # scalarproduct
+    # scalarproduct, multiply every value from vec a & b and add it up
     dot = np.dot(vec_a, vec_b)
 
     # length of vectors
@@ -101,6 +101,7 @@ def calculate_similarity(vec_a, vec_b):
     # division / 0
     if norm_a == 0 or norm_b == 0: return 0.0
 
+    # get rid of the length from the recipe by splitting to the length of the vectors, so only the angle is the endproduct
     return dot / (norm_a * norm_b)
 
 
@@ -130,6 +131,19 @@ def recommend():
     has_nut_allergy = user_filters.get('no_nuts', False)
     print(f" 'search:' {user_ingredients} | 'filters:' {user_filters} ")
 
+    filtered_df = df_recipes.copy()
+
+    if wants_vegetarian:
+        filtered_df = df_recipes[df_recipes['is_vegetarian'] == True]
+
+    if wants_vegan:
+        filtered_df = df_recipes[df_recipes['is_vegan'] == True]
+
+    if has_nut_allergy:
+        filtered_df = df_recipes[df_recipes['has_nuts'] == False]
+
+    valid_recipe_ids = set(filtered_df.index.tolist())
+
     input_vectors = []
     for i in user_ingredients:
         clean = i.lower().strip().replace(" ", "_")
@@ -153,45 +167,34 @@ def recommend():
     # comparison of the mean and the database, get the id´s
     results = []
     for r_id, r_vec in db_ingredients.items():
-        score = calculate_similarity(query_vec, r_vec)
-        if score > 0.4:
-            results.append((r_id, score))
+        if r_id in valid_recipe_ids:
+            score = calculate_similarity(query_vec, r_vec)
+            if score > 0.4:
+                results.append((r_id, score))
 
     # sort
     results.sort(key=lambda x: x[1], reverse=True)
+
     response = []
     print(f"\n best matches:")
 
-    # lookup the id with the associated data
-    for r_id, score in results:
-        try:
-            row = df_recipes.iloc[r_id]
-            if wants_vegetarian and not row.get('is_vegetarian'):
-                continue
-            if wants_vegan and not row.get('is_vegan'):
-                continue
-            if has_nut_allergy and not row.get('has_nuts'):
-                continue
+    for r_id, score in results[:20]:
+        row = df_recipes.iloc[r_id]
+        title = row['Title']
+        print(f"   Score: {score:.4f} | ID: {r_id} | {title}")
 
-            title = row['Title']
-            img_url = get_image_url(request, row.get('Image_Name'))
-            print(f"   Score: {score:.4f} | ID: {r_id} | {title}")
+        response.append({
+            "id": int(r_id),
+            "title": row['Title'],
+            "image": get_image_url(request, row['Image_Name']),
+            "score": float(score),
+            "tags": {
+                "vegetarian": bool(row['is_vegetarian']),
+                "vegan": bool(row['is_vegan']),
+                "nuts": bool(row['has_nuts']),
+            }
+        })
 
-            response.append({
-                "id": int(r_id),
-                "title": title,
-                "image": img_url,
-                "score": float(score),
-                "tags": {
-                    "vegetarian": bool(row['is_vegetarian']),
-                    "vegan": bool(row['is_vegan']),
-                    "nuts": bool(row['has_nuts']),
-                }
-            })
-            if len(response) >= 20:
-                break
-        except:
-            continue
     return jsonify({"results": response})
 
 
