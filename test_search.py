@@ -1,34 +1,10 @@
 import requests
 
-url = "http://127.0.0.1:5000/recommend"
-
-#payload = {}
-
-# payload = {
-#
-#     "ingredients": ["mozzarella", "tomato", "basil", "Olive Oil"],
-#     "filters": {
-#         "vegetarian": True,
-#         "no_nuts": True,
-#         "vegan": True,
-#     }
-# }
-
+url = "http://127.0.0.1:5000/search"
 
 payload = {
-    "ingredients": [
-        {"name": "chicken", "weight": 5.0},
-        {"name": "milk", "weight": 1.0},
-        {"name": "nut"},
-        {"name": "hazelnut"},
-        "zucchini"
-
-    ],
-    "filters": {"vegetarian": False,
-                "no_nuts": True,
-                "vegan": True,
-                }
-
+    "query": "pesto",
+    "filters": {"vegetarian": True}
 }
 
 print(f"📡 send request to {url}...")

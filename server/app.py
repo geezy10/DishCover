@@ -136,36 +136,58 @@ def recommend():
     filtered_df = df_recipes.copy()
 
     if wants_vegetarian:
-        filtered_df = df_recipes[df_recipes['is_vegetarian'] == True]
+        filtered_df = filtered_df[filtered_df['is_vegetarian'] == True]
 
     if wants_vegan:
-        filtered_df = df_recipes[df_recipes['is_vegan'] == True]
+        filtered_df = filtered_df[filtered_df['is_vegan'] == True]
 
     if has_nut_allergy:
-        filtered_df = df_recipes[df_recipes['has_nuts'] == False]
+        filtered_df = filtered_df[filtered_df['has_nuts'] == False]
+
+
+    print(f"found {len(filtered_df)} recipes")
 
     valid_recipe_ids = set(filtered_df.index.tolist())
 
     input_vectors = []
-    for i in user_ingredients:
-        clean = i.lower().strip().replace(" ", "_")
+    weights = []
+    unknown = []
+
+    for item in user_ingredients:
+        if isinstance(item, dict):
+            ing_name = item.get('name', '')
+            weight = float(item.get('weight', 1.0))
+        else:
+            ing_name = str(item)
+            weight = 1.0
+
+        clean = ing_name.lower().strip().replace(" ", "_")
         clean = lemmatizer.lemmatize(clean)
+
+        vec = None
 
         # get the mathematical position for every ingredient
         if clean in w2v_model.wv:
-            print(f"  '{clean}' found!")
-            similar_words = w2v_model.wv.most_similar(clean, topn=3)
-            print(f"    similarity:  {similar_words}")
+            print(f"  '{clean}' found! (Weight: {weight})")
+            vec = w2v_model.wv[clean]
 
-            input_vectors.append(w2v_model.wv[clean])
+        elif ing_name.lower().strip() in w2v_model.wv:
+            fallback = ing_name.lower().strip()
+            vec = w2v_model.wv[fallback]
+
+        if vec is not None:
+            input_vectors.append(vec)
+            weights.append(weight)
+
         else:
-            print(f" '{clean}' not in the vocabular")
+            print(f"  '{clean}' not found! (Weight: {weight})")
+            unknown.append(ing_name)
 
     if not input_vectors:
         return jsonify({"error": "no matching ingredients"}), 404
 
-    # calculate the mean from all input ingredients
-    query_vec = np.mean(input_vectors, axis=0)
+    # calculate the averga from all input ingredients
+    query_vec = np.average(input_vectors, axis=0, weights=weights)
 
     # comparison of the mean and the database, get the id´s
     results = []
@@ -199,6 +221,75 @@ def recommend():
         })
 
     return jsonify({"results": response})
+
+
+@app.route('/search', methods=['POST'])
+def search():
+    if d2v_model is None or db_recipes is None:
+        return jsonify({"error": "no model loaded"}), 404
+
+    data = request.get_json()
+    query_text = data.get('query', '')
+
+    user_filters = data.get('filters', {})
+    wants_vegetarian = user_filters.get('vegetarian', False)
+    wants_vegan = user_filters.get('vegan', False)
+    has_nut_allergy = user_filters.get('no_nuts', False)
+
+    filtered_df = df_recipes.copy()
+    if wants_vegetarian:
+        filtered_df = df_recipes[df_recipes['is_vegetarian'] == True]
+    if wants_vegan:
+        filtered_df = df_recipes[df_recipes['is_vegan'] == True]
+    if has_nut_allergy:
+        filtered_df = df_recipes[df_recipes['has_nuts'] == False]
+
+    valid_recipe_ids = set(filtered_df.index.tolist())
+
+    print(f"search query: {query_text} | Filters: {user_filters}")
+
+    tokens = query_text.lower().split()
+
+    if len(tokens) < 3:
+        print("short query detected")
+        inferred_vector = d2v_model.infer_vector(tokens, epochs=200)
+    else:
+        inferred_vector = d2v_model.infer_vector(tokens, epochs=20)
+
+    candidates = []
+
+    for r_id, r_vec in db_recipes.items():
+        if r_id not in valid_recipe_ids:
+            continue
+        score = calculate_similarity(inferred_vector, r_vec)
+
+        if score > 0.4:
+            candidates.append((r_id, score))
+
+    candidates.sort(key=lambda x: x[1], reverse=True)
+    top_results = candidates[:20]
+    response = []
+
+    for r_id, score in top_results:
+        try:
+            row = df_recipes.iloc[r_id]
+
+            img_url = get_image_url(request, row.get('Image_Name'))
+
+            response.append({
+                "id": int(r_id),
+                "title": row['Title'],
+                "image": img_url,
+                "score": float(score),
+                "tags": {
+                    "vegetarian": bool(row.get('is_vegetarian', False)),
+                    "vegan": bool(row.get('is_vegan', False))
+                }
+            })
+        except Exception as e:
+            print(e)
+            continue
+    return jsonify({"query": query_text, "results": response})
 
 
 @app.route('/recipe/<int:recipe_id>/similar', methods=['GET'])
