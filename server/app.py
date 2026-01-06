@@ -6,6 +6,7 @@ from flask_cors import CORS
 import numpy as np
 from gensim.models import Word2Vec, Doc2Vec
 from nltk.stem import WordNetLemmatizer
+
 lemmatizer = WordNetLemmatizer()
 
 app = Flask(__name__)
@@ -133,6 +134,7 @@ def recommend():
     has_nut_allergy = user_filters.get('no_nuts', False)
     print(f" 'search:' {user_ingredients} | 'filters:' {user_filters} ")
 
+    # copy the df and check for allergy and types of food
     filtered_df = df_recipes.copy()
 
     if wants_vegetarian:
@@ -144,7 +146,6 @@ def recommend():
     if has_nut_allergy:
         filtered_df = filtered_df[filtered_df['has_nuts'] == False]
 
-
     print(f"found {len(filtered_df)} recipes")
 
     valid_recipe_ids = set(filtered_df.index.tolist())
@@ -153,6 +154,7 @@ def recommend():
     weights = []
     unknown = []
 
+    # logic for the possibilty to send objects or strings: {"name": "tomato", "weight":...} or just tomato
     for item in user_ingredients:
         if isinstance(item, dict):
             ing_name = item.get('name', '')
@@ -183,13 +185,40 @@ def recommend():
             print(f"  '{clean}' not found! (Weight: {weight})")
             unknown.append(ing_name)
 
+        # if payload is empty
     if not input_vectors:
-        return jsonify({"error": "no matching ingredients"}), 404
+        sample_size = min(20, len(filtered_df))
+        print("no vectors")
 
-    # calculate the averga from all input ingredients
+        # random selection
+        random = filtered_df.sample(n=sample_size)
+        response = []
+        print(f"\n best matches:")
+
+        for r_id, row in random.iterrows():
+            row = df_recipes.iloc[r_id]
+            title = row['Title']
+            score = 0.0
+            print(f"   Score: {score:.4f} | ID: {r_id} | {title}")
+
+            response.append({
+                "id": int(r_id),
+                "title": row['Title'],
+                "image": get_image_url(request, row['Image_Name']),
+                "score": float(score),
+                "tags": {
+                    "vegetarian": bool(row['is_vegetarian']),
+                    "vegan": bool(row['is_vegan']),
+                    "nuts": bool(row['has_nuts']),
+                }
+            })
+
+        return jsonify({"results": response})
+
+    # calculate the averg from all input ingredients
     query_vec = np.average(input_vectors, axis=0, weights=weights)
 
-    # comparison of the mean and the database, get the id´s
+    # iterate over all recipes but only append that that matched the filters
     results = []
     for r_id, r_vec in db_ingredients.items():
         if r_id in valid_recipe_ids:
