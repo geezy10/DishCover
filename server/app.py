@@ -196,7 +196,7 @@ def recommend():
         print(f"\n best matches:")
 
         for r_id, row in random.iterrows():
-            row = df_recipes.iloc[r_id]
+            #row = df_recipes.iloc[r_id]
             title = row['Title']
             score = 0.0
             print(f"   Score: {score:.4f} | ID: {r_id} | {title}")
@@ -279,7 +279,7 @@ def search():
 
     tokens = query_text.lower().split()
 
-    if len(tokens) < 3:
+    if len(tokens) < 5:
         print("short query detected")
         inferred_vector = d2v_model.infer_vector(tokens, epochs=200)
     else:

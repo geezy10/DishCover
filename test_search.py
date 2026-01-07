@@ -3,8 +3,8 @@ import requests
 url = "http://127.0.0.1:5000/search"
 
 payload = {
-    "query": "pesto",
-    "filters": {"vegetarian": True}
+    "query": "Chicken Tomato Mozzarella Salt Sauce Carrot",
+    "filters": {"vegetarian": False}
 }
 
 print(f"📡 send request to {url}...")

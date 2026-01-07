@@ -2,7 +2,8 @@ import requests
 
 url = "http://127.0.0.1:5000/recommend"
 
-payload = {}
+# payload = {}
+#payload = {"ingredients": [ "delicious"]}
 
 # payload = {
 #
@@ -15,21 +16,20 @@ payload = {}
 # }
 
 
-# payload = {
-#     "ingredients": [
-#         {"name": "chicken", "weight": 5.0},
-#         {"name": "milk", "weight": 1.0},
-#         {"name": "nut"},
-#         {"name": "hazelnut"},
-#         "zucchini"
-#
-#     ],
-#     "filters": {"vegetarian": False,
-#                 "no_nuts": True,
-#                 "vegan": True,
-#                 }
-#
-# }
+payload = {
+    "ingredients": [
+        {"name": "mozzarella", "weight": 3.0},
+        {"name": "tomato"},
+        "basil",
+        "zucchini",
+
+    ],
+    "filters": {"vegetarian": False,
+                "no_nuts": True,
+                "vegan": False,
+                }
+
+}
 
 print(f"📡 send request to {url}...")
 print(f" payload: {payload}")
