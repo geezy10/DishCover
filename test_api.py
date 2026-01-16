@@ -9,7 +9,7 @@ url = "http://127.0.0.1:5000/recommend"
 #
 #     "ingredients": ["mozzarella", "tomato", "basil", "Olive Oil"],
 #     "filters": {
-#         "vegetarian": True,
+#         "vegetarian": true,
 #         "no_nuts": True,
 #         "vegan": True,
 #     }
@@ -18,14 +18,14 @@ url = "http://127.0.0.1:5000/recommend"
 
 payload = {
     "ingredients": [
-        {"name": "mozzarella", "weight": 3.0},
+        {"name": "mozzarella"},
         {"name": "tomato"},
         "basil",
         "zucchini",
 
     ],
     "filters": {"vegetarian": False,
-                "no_nuts": True,
+                "no_nuts": False,
                 "vegan": False,
                 }
 
