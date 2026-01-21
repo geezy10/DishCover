@@ -22,6 +22,7 @@ payload = {
         {"name": "tomato"},
         "basil",
         "zucchini",
+        "chicken breast"
 
     ],
     "filters": {"vegetarian": False,

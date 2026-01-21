@@ -1,5 +1,7 @@
 import os
 import pickle
+import time
+
 import pandas as pd
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -112,7 +114,9 @@ def calculate_similarity(vec_a, vec_b):
 def parse_instructions_safe(raw_instr):
     instructions_list = []
     if isinstance(raw_instr, str):
-        if raw_instr.strip().startswith('['):
+        if len(raw_instr.strip()) < 3:
+            pass
+        elif raw_instr.strip().startswith('['):
             try:
                 instructions_list = ast.literal_eval(raw_instr)
             except:
@@ -121,12 +125,15 @@ def parse_instructions_safe(raw_instr):
             instructions_list = [s.strip() for s in raw_instr.split('.') if len(s) > 5]
     elif isinstance(raw_instr, list):
         instructions_list = raw_instr
-    return instructions_list
 
+    if not instructions_list or len(instructions_list) == 0:
+        return ["Zubereitungsschritte laden..."]
+
+    return instructions_list
 
 def get_ingredient_match_info(user_ingredients, recipe_ingredients_raw):
     if pd.isna(recipe_ingredients_raw) or recipe_ingredients_raw is None:
-        return [], 0, []  #
+        return [], 0, []
 
     user_keywords = set()
     for item in user_ingredients:
@@ -187,6 +194,7 @@ def images(filename):
 
 @app.route('/recommend', methods=['POST'])
 def recommend():
+    start_time = time.time()
     data = request.get_json()
     user_ingredients = data.get('ingredients', [])
 
@@ -195,6 +203,11 @@ def recommend():
     wants_vegan = user_filters.get('vegan', False)
     has_nut_allergy = user_filters.get('no_nuts', False)
     print(f" 'search:' {user_ingredients} | 'filters:' {user_filters} ")
+
+    urgent_ingredient_names = []
+    for item in user_ingredients:
+        if isinstance(item, dict) and float(item.get('weight', 1.0)) > 1.5:
+            urgent_ingredient_names.append(item.get('name', '').lower())
 
     # pre-filtering
     # copy the df and check for allergy and types of food
@@ -284,15 +297,20 @@ def recommend():
     results.sort(key=lambda x: x[1], reverse=True)
 
     response = []
-    print(f"\n best matches:")
-
     for r_id, score in results[:20]:
         row = df_recipes.loc[r_id]
-        raw_ingreds = row.get('Ingredients', [])
-        match_list, missing, full_list = get_ingredient_match_info(user_ingredients, raw_ingreds)
         instructions = parse_instructions_safe(row.get('Instructions', ''))
 
-        print(f"   Score: {score:.4f} | ID: {r_id} | {row['Title']}")
+        if not instructions or len(instructions) == 0:
+            continue
+
+        match_list, missing_count, full_list = get_ingredient_match_info(user_ingredients, row.get('Ingredients', []))
+
+
+        used_urgent_ingredients = [
+            i for i in match_list
+            if any(urgent in i.lower() for urgent in urgent_ingredient_names)
+        ]
 
         response.append({
             "id": int(r_id),
@@ -303,16 +321,15 @@ def recommend():
             "instructions": instructions,
             "reasons": {
                 "matching_items": match_list,
-                "missing_ingredients": missing
+                "missing_count": int(missing_count),
+                "used_urgent_ingredients": used_urgent_ingredients,
             },
-            "tags": {
-                "vegetarian": bool(row['is_vegetarian']),
-                "vegan": bool(row['is_vegan']),
-                "nuts": bool(row['has_nuts']),
-            }
+            "tags": {"vegetarian": bool(row['is_vegetarian']), "vegan": bool(row['is_vegan']),
+                     "nuts": bool(row['has_nuts'])}
         })
 
-    return jsonify({"results": response})
+    duration = time.time() - start_time
+    return jsonify({"results": response, "debug_info": {"latency_seconds": duration}})
 
 
 
@@ -323,6 +340,7 @@ def search():
 
     data = request.get_json()
     query_text = data.get('query', '')
+    user_ingredients = data.get('ingredients', [])
 
     user_filters = data.get('filters', {})
     wants_vegetarian = user_filters.get('vegetarian', False)
@@ -362,32 +380,25 @@ def search():
     candidates.sort(key=lambda x: x[1], reverse=True)
     top_results = candidates[:100]
     response = []
-
     for r_id, score in top_results:
-        try:
-            row = df_recipes.iloc[r_id]
+        row = df_recipes.iloc[r_id]
+        m_list, m_count, f_list = get_ingredient_match_info(user_ingredients, row.get('Ingredients', []))
 
-            raw_ingreds = row.get('Ingredients', [])
-            full_list = get_ingredient_match_info([], raw_ingreds)
-            instructions = parse_instructions_safe(row.get('Instructions', ''))
-
-
-            response.append({
-                "id": int(r_id),
-                "title": row['Title'],
-                "image": get_image_url(request, row.get('Image_Name')),
-                "score": float(score),
-                "ingredients_list": full_list,
-                "instructions": instructions,
-                "tags": {
-                    "vegetarian": bool(row.get('is_vegetarian', False)),
-                    "vegan": bool(row.get('is_vegan', False))
-                }
-            })
-        except Exception as e:
-            print(e)
-            continue
-    return jsonify({"query": query_text, "results": response})
+        response.append({
+            "id": int(r_id),
+            "title": row['Title'],
+            "image": get_image_url(request, row.get('Image_Name')),
+            "score": float(score),
+            "reasons": {
+                "matching_items": m_list,
+                "missing_count": int(m_count),
+                "is_boosted": False,
+                "saved_urgent_items": []
+            },
+            "ingredients_list": f_list,
+            "tags": {"vegetarian": bool(row.get('is_vegetarian', False)), "vegan": bool(row.get('is_vegan', False))}
+        })
+    return jsonify({"results": response})
 
 
 @app.route('/recipe/<int:recipe_id>/similar', methods=['GET'])
