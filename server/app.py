@@ -382,7 +382,7 @@ def search():
     top_results = candidates[:100]
     response = []
     for r_id, score in top_results:
-        row = df_recipes.iloc[r_id]
+        row = df_recipes.loc[r_id]
         instructions = parse_instructions_safe(row.get('Instructions', ''))
         m_list, m_count, f_list = get_ingredient_match_info(user_ingredients, row.get('Ingredients', []))
 
