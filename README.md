@@ -1,10 +1,11 @@
 # 🍳 DishCover: Semantische Rezept-Empfehlung mit NLP
 
 Ein Machine-Learning-Projekt, das Kochrezepte analysiert und ähnliche Gerichte basierend auf Zutaten-Embeddings vorschlägt. Das Modell versteht kulinarische Kontexte durch den Einsatz von **Word2Vec** und **Cosine Similarity**.
+<p align="center">
 <img width="1480" height="2800" alt="Screenshot_20260123-140210-portrait" src="https://github.com/user-attachments/assets/515c32ea-d20d-47a5-8f8a-26a6f10b4223" />
 <img width="1480" height="2800" alt="Screenshot_20260123-140227-portrait" src="https://github.com/user-attachments/assets/2b42bf3d-dc8a-47c2-8285-d6378e7f7a0d" />
 <img width="1480" height="2800" alt="Screenshot_20260123-133518-portrait" src="https://github.com/user-attachments/assets/8ddceba8-8d5c-422a-9907-115e7b106865" />
-
+</p>
 
 ## 🚀 Features
 
