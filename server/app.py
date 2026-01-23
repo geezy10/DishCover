@@ -329,6 +329,7 @@ def recommend():
         })
 
     duration = time.time() - start_time
+    print(duration)
     return jsonify({"results": response, "debug_info": {"latency_seconds": duration}})
 
 
@@ -382,6 +383,7 @@ def search():
     response = []
     for r_id, score in top_results:
         row = df_recipes.iloc[r_id]
+        instructions = parse_instructions_safe(row.get('Instructions', ''))
         m_list, m_count, f_list = get_ingredient_match_info(user_ingredients, row.get('Ingredients', []))
 
         response.append({
@@ -389,11 +391,12 @@ def search():
             "title": row['Title'],
             "image": get_image_url(request, row.get('Image_Name')),
             "score": float(score),
+            "instructions": instructions,
             "reasons": {
                 "matching_items": m_list,
                 "missing_count": int(m_count),
                 "is_boosted": False,
-                "saved_urgent_items": []
+                "used_urgent_items": []
             },
             "ingredients_list": f_list,
             "tags": {"vegetarian": bool(row.get('is_vegetarian', False)), "vegan": bool(row.get('is_vegan', False))}
