@@ -1,3 +1,4 @@
+import json
 import os
 import pickle
 import time
@@ -131,6 +132,7 @@ def parse_instructions_safe(raw_instr):
 
     return instructions_list
 
+
 def get_ingredient_match_info(user_ingredients, recipe_ingredients_raw):
     if pd.isna(recipe_ingredients_raw) or recipe_ingredients_raw is None:
         return [], 0, []
@@ -177,6 +179,8 @@ def get_ingredient_match_info(user_ingredients, recipe_ingredients_raw):
     missing_count = max(0, len(recipe_lines) - len(matched_lines))
 
     return matched_lines, missing_count, recipe_lines
+
+
 # --------------------------- endpoints ----------------------------------#
 @app.route('/status', methods=['GET'])
 def status():
@@ -306,7 +310,6 @@ def recommend():
 
         match_list, missing_count, full_list = get_ingredient_match_info(user_ingredients, row.get('Ingredients', []))
 
-
         used_urgent_ingredients = [
             i for i in match_list
             if any(urgent in i.lower() for urgent in urgent_ingredient_names)
@@ -328,10 +331,13 @@ def recommend():
                      "nuts": bool(row['has_nuts'])}
         })
 
+    if len(response) > 0:
+        print(json.dumps(response[0], indent=4, default=str))
+        print("-" * 50)
+
     duration = time.time() - start_time
     print(duration)
     return jsonify({"results": response, "debug_info": {"latency_seconds": duration}})
-
 
 
 @app.route('/search', methods=['POST'])

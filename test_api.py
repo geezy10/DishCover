@@ -5,32 +5,32 @@ url = "http://127.0.0.1:5000/recommend"
 # payload = {}
 #payload = {"ingredients": [ "delicious"]}
 
-# payload = {
-#
-#     "ingredients": ["mozzarella", "tomato", "basil", "Olive Oil"],
-#     "filters": {
-#         "vegetarian": true,
-#         "no_nuts": True,
-#         "vegan": True,
-#     }
-# }
-
-
 payload = {
-    "ingredients": [
-        {"name": "mozzarella"},
-        {"name": "tomato"},
-        "basil",
-        "zucchini",
-        "chicken breast"
 
-    ],
-    "filters": {"vegetarian": False,
-                "no_nuts": False,
-                "vegan": False,
-                }
-
+    "ingredients": ["mozzarella", "tomato", "Olive Oil"],
+    "filters": {
+        "vegetarian": False,
+        "no_nuts": True,
+        "vegan": False,
+    }
 }
+
+
+# payload = {
+#     "ingredients": [
+#         {"name": "mozzarella"},
+#         {"name": "tomato"},
+#         "basil",
+#         "zucchini",
+#         "chicken breast"
+#
+#     ],
+#     "filters": {"vegetarian": False,
+#                 "no_nuts": False,
+#                 "vegan": False,
+#                 }
+#
+# }
 
 print(f"📡 send request to {url}...")
 print(f" payload: {payload}")
