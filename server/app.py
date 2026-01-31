@@ -473,7 +473,7 @@ def get_recipe_id(recipe_id):
     try:
         row = df_recipes.loc[recipe_id]
         instructions_raw = str(row['Instructions'])
-        steps = [s.strip(instructions_raw) for s in instructions_raw.split('\n')
+        steps = [s.strip() for s in instructions_raw.split('\n')
                  if len(s.strip()) > 5]
 
         ingredients_raw = str(row['Ingredients'])
