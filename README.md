@@ -7,10 +7,9 @@ Dieses Repository enthält das Python-Backend und die Machine-Learning-Logik fü
   <img width="32%" src="https://github.com/user-attachments/assets/060cb055-e5cf-42e4-ade8-8ba0b09581e7" alt="FeedMe Detailansicht" />
   <img width="32%" src="https://github.com/user-attachments/assets/0a806515-1d74-480a-90d1-c46bd8cb44d1" alt="FeedMe Kochmodus" />
 </p>
+
+
 ## 🚀 Features & Innovation
-
-
-
 *   **Proaktives MHD-Boosting:** Zutaten, deren Mindesthaltbarkeitsdatum (MHD) bald abläuft, erhalten bei der Vektorberechnung ein mathematisch höheres Gewicht. Dadurch rutschen Rezepte zur Resteverwertung automatisch im Ranking nach oben.
 *   **Hybrides Empfehlungssystem:** Kombination aus deterministischem Pre-Filtering (z.B. strikte Einhaltung von "Vegan" oder "Nussfrei") und semantischer Ähnlichkeitsberechnung (Cosine Similarity).
 *   **Dynamische Semantische Suche:** Eine Freitextsuche, die das aktuelle Inventar des Nutzers berücksichtigt und die Suchergebnisse durch ein dynamisches Re-Ranking anpasst.
