@@ -3,12 +3,13 @@
 Dieses Repository enthält das Python-Backend und die Machine-Learning-Logik für **FeedMe**, ein intelligentes Empfehlungssystem zur nachhaltigen Lebensmittelverwertung. Das System analysiert den digitalen Haushaltsbestand des Nutzers und schlägt basierend auf **Word2Vec-Embeddings** und **hybriden Filteralgorithmen** passende Rezepte vor, um Lebensmittelverschwendung (Food Waste) proaktiv zu reduzieren.
 
 <p align="center">
-  <img width="32%" src="https://github.com/user-attachments/assets/515c32ea-d20d-47a5-8f8a-26a6f10b4223" alt="FeedMe Übersicht" />
-  <img width="32%" src="https://github.com/user-attachments/assets/2b42bf3d-dc8a-47c2-8285-d6378e7f7a0d" alt="FeedMe Detailansicht" />
-  <img width="32%" src="https://github.com/user-attachments/assets/8ddceba8-8d5c-422a-9907-115e7b106865" alt="FeedMe Kochmodus" />
+  <img width="32%" src="https://github.com/user-attachments/assets/4397cf03-65ff-4567-b261-eace166f06b9" alt="FeedMe Übersicht" />
+  <img width="32%" src="https://github.com/user-attachments/assets/060cb055-e5cf-42e4-ade8-8ba0b09581e7" alt="FeedMe Detailansicht" />
+  <img width="32%" src="https://github.com/user-attachments/assets/0a806515-1d74-480a-90d1-c46bd8cb44d1" alt="FeedMe Kochmodus" />
 </p>
-
 ## 🚀 Features & Innovation
+
+
 
 *   **Proaktives MHD-Boosting:** Zutaten, deren Mindesthaltbarkeitsdatum (MHD) bald abläuft, erhalten bei der Vektorberechnung ein mathematisch höheres Gewicht. Dadurch rutschen Rezepte zur Resteverwertung automatisch im Ranking nach oben.
 *   **Hybrides Empfehlungssystem:** Kombination aus deterministischem Pre-Filtering (z.B. strikte Einhaltung von "Vegan" oder "Nussfrei") und semantischer Ähnlichkeitsberechnung (Cosine Similarity).
