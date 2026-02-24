@@ -1,57 +1,52 @@
-# 🍳 DishCover: Semantische Rezept-Empfehlung mit NLP
+# 🍳 FeedMe: ML-Backend & Recommendation API
 
-Ein Machine-Learning-Projekt, das Kochrezepte analysiert und ähnliche Gerichte basierend auf Zutaten-Embeddings vorschlägt. Das Modell versteht kulinarische Kontexte durch den Einsatz von **Word2Vec** und **Cosine Similarity**.
+Dieses Repository enthält das Python-Backend und die Machine-Learning-Logik für **FeedMe**, ein intelligentes Empfehlungssystem zur nachhaltigen Lebensmittelverwertung. Das System analysiert den digitalen Haushaltsbestand des Nutzers und schlägt basierend auf **Word2Vec-Embeddings** und **hybriden Filteralgorithmen** passende Rezepte vor, um Lebensmittelverschwendung (Food Waste) proaktiv zu reduzieren.
+
 <p align="center">
-  <img width="32%" src="https://github.com/user-attachments/assets/515c32ea-d20d-47a5-8f8a-26a6f10b4223" />
-  <img width="32%" src="https://github.com/user-attachments/assets/2b42bf3d-dc8a-47c2-8285-d6378e7f7a0d" />
-  <img width="32%" src="https://github.com/user-attachments/assets/8ddceba8-8d5c-422a-9907-115e7b106865" />
+  <img width="32%" src="https://github.com/user-attachments/assets/515c32ea-d20d-47a5-8f8a-26a6f10b4223" alt="FeedMe Übersicht" />
+  <img width="32%" src="https://github.com/user-attachments/assets/2b42bf3d-dc8a-47c2-8285-d6378e7f7a0d" alt="FeedMe Detailansicht" />
+  <img width="32%" src="https://github.com/user-attachments/assets/8ddceba8-8d5c-422a-9907-115e7b106865" alt="FeedMe Kochmodus" />
 </p>
 
-## 🚀 Features
+## 🚀 Features & Innovation
 
-*   **Intelligentes Preprocessing:** Bereinigung von rohen Zutatenlisten (Entfernen von Maßeinheiten, Füllwörtern und Zubereitungsarten wie "chopped" oder "diced") unter Verwendung von NLTK.
-*   **Bigramm-Erkennung:** Automatische Identifizierung von zusammengehörigen Begriffen (z. B. `olive_oil`, `peanut_butter`, `granny_smith`) mittels Gensim Phrases.
-*   **Semantisches Verständnis:** Training eines Word2Vec-Modells, das versteht, dass "Limetten" und "Zitronen" ähnlicher sind als "Limetten" und "Steak".
-*   **Rezept-Vektorisierung:** Berechnung eines Durchschnittsvektors für jedes Rezept, um mathematische Ähnlichkeitsberechnungen zu ermöglichen.
-*   **Empfehlungssystem:** Findet Alternativen zu einem Rezept basierend auf der Kosinus-Ähnlichkeit der Vektoren.
+*   **Proaktives MHD-Boosting:** Zutaten, deren Mindesthaltbarkeitsdatum (MHD) bald abläuft, erhalten bei der Vektorberechnung ein mathematisch höheres Gewicht. Dadurch rutschen Rezepte zur Resteverwertung automatisch im Ranking nach oben.
+*   **Hybrides Empfehlungssystem:** Kombination aus deterministischem Pre-Filtering (z.B. strikte Einhaltung von "Vegan" oder "Nussfrei") und semantischer Ähnlichkeitsberechnung (Cosine Similarity).
+*   **Dynamische Semantische Suche:** Eine Freitextsuche, die das aktuelle Inventar des Nutzers berücksichtigt und die Suchergebnisse durch ein dynamisches Re-Ranking anpasst.
+*   **Intelligentes NLP-Preprocessing:** Bereinigung von rohen Zutatenlisten (Entfernen von Maßeinheiten und Füllwörtern) mittels `NLTK` sowie Erkennung semantischer Einheiten (Bigramme wie `olive_oil`) mittels `Gensim Phrases`.
+*   **Explainable AI (XAI):** Die API liefert detaillierte Metadaten zurück (z.B. `used_urgent_ingredients`, `missing_count`), um die Entscheidungen des Algorithmus für das Frontend transparent und nachvollziehbar zu machen.
 
 ## 🛠️ Technologie-Stack
 
-*   **Python 3.x**
-*   **Pandas:** Datenmanipulation und Management der Rezept-Datensätze.
-*   **NLTK (Natural Language Toolkit):** Tokenisierung, POS-Tagging (Part-of-Speech) und Lemmatisierung.
-*   **Gensim:** Training des Word2Vec-Modells und Phraser (Bigramme).
-*   **Scikit-Learn:** Berechnung der Cosine Similarity Matrix.
-*   **NumPy:** Vektorberechnungen.
+*   **Backend Framework:** Python 3.x, Flask (REST-API)
+*   **Machine Learning:** Gensim (Word2Vec Skip-Gram), Scikit-Learn (Cosine Similarity Matrix)
+*   **Data Science:** Pandas, NumPy
+*   **NLP:** NLTK (Tokenisierung, POS-Tagging, Lemmatisierung)
 
-## 📊 Die Pipeline
+## 📊 Die ML-Pipeline
 
-Das Projekt folgt einer strikten NLP-Pipeline, um aus unstrukturiertem Text nutzbare Vektoren zu machen:
+Das Projekt folgt einer strikten Pipeline, um aus unstrukturiertem Text nutzbare Vektoren für das Matching zu generieren:
 
-1.  **Data Ingestion:** Laden des Rezept-Datensatzes (CSV).
-2.  **Advanced Cleaning:**
-    *   Parsing von Strings in Python-Listen.
-    *   Entfernen von Zahlen, Sonderzeichen und Klammern.
-    *   **POS-Tagging Filter:** Es werden primär Nomen (`NN`) und relevante Adjektive (`JJ`) behalten.
-    *   **Custom Stopwords:** Aggressives Filtern von Maßeinheiten ("cup", "oz"), Verben ("chopped", "boiled") und generischen Adjektiven ("large", "fresh"), um das Rauschen zu minimieren.
-3.  **Phrasing (Bigrams):** Das Modell lernt, dass `baking` und `powder` zu `baking_powder` gehören.
-4.  **Embedding Training:** Ein Word2Vec-Modell (Skip-Gram) lernt 150-dimensionale Vektoren für jede Zutat.
-5.  **Vectorization:** Jedes Rezept wird durch den Durchschnitt seiner Zutaten-Vektoren repräsentiert.
+1.  **Data Cleaning:** Parsing von Strings, Entfernen von Zahlen/Sonderzeichen. NLTK POS-Tagging behält primär Nomen und relevante Adjektive, während Custom-Blacklists Maßeinheiten und Verben verwerfen.
+2.  **Phrasing (Bigrams):** Das Modell lernt, dass Zusammenhänge wie `baking` + `powder` zu `baking_powder` verschmelzen.
+3.  **Embedding Training:** Ein Word2Vec-Modell (Skip-Gram) lernt dichte semantische Vektoren für jede Zutat.
+4.  **Vectorization:** Jedes Rezept wird durch den aggregierten Durchschnittsvektor seiner Zutaten repräsentiert.
 
 ## 📂 Installation & Nutzung
 
 1.  **Repository klonen:**
     ```bash
-    git clone https://github.com/dein-username/recipe-word2vec.git
-    cd recipe-word2vec
+    git clone https://github.com/DEIN-USERNAME/feedme-backend.git
+    cd feedme-backend
     ```
 
-2.  **Dependencies installieren:**
+2.  **Virtual Environment erstellen & Dependencies installieren:**
     ```bash
-    pip install pandas numpy nltk gensim scikit-learn
+    python -m venv venv
+    source venv/bin/activate  # Windows: venv\Scripts\activate
     ```
 
-3.  **NLTK Daten laden (einmalig im Script):**
+3.  **NLTK Daten laden (einmalig):**
     ```python
     import nltk
     nltk.download('stopwords')
@@ -59,5 +54,15 @@ Das Projekt folgt einer strikten NLP-Pipeline, um aus unstrukturiertem Text nutz
     nltk.download('averaged_perceptron_tagger')
     ```
 
-4.  **Notebook/Script ausführen:**
-    Lade deinen Datensatz (`recipes.csv`) in den `data/` Ordner und starte das Training.
+4.  **Server starten:**
+    Stelle sicher, dass die Trainingsdaten (`.pkl` / `.csv`) im vorgesehenen Verzeichnis liegen.
+    ```bash
+    python app.py
+    # Der Flask-Server läuft nun standardmäßig auf http://localhost:5000
+    ```
+
+## 📡 API Endpunkte (Auszug)
+
+*   `POST /recommend` – Generiert Rezeptvorschläge basierend auf dem übergebenen Inventar (inkl. MHD-Gewichten) und aktiven Filtern.
+*   `POST /search` – Semantische Freitextsuche mit optionalem Inventar-Re-Ranking.
+*   `GET /recipe/<id>` – Ruft detaillierte Rezeptinformationen ab.
