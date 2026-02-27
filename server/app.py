@@ -7,7 +7,7 @@ import pandas as pd
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import numpy as np
-from gensim.models import Word2Vec, Doc2Vec
+from gensim.models import Word2Vec
 from nltk.stem import WordNetLemmatizer
 import ast
 
@@ -53,23 +53,23 @@ except Exception as e:
     print(e)
 
 # load d2v model
-try:
-    d2v_path = os.path.join(MODELS_DIR, "doc2vec.model")
-    if os.path.exists(d2v_path):
-        d2v_model = Word2Vec.load(d2v_path)
-        print("loaded doc2vec model")
-    else:
-        print("no doc2vec model")
-except Exception as e:
-    print(e)
+# try:
+#     d2v_path = os.path.join(MODELS_DIR, "doc2vec.model")
+#     if os.path.exists(d2v_path):
+#         d2v_model = Word2Vec.load(d2v_path)
+#         print("loaded doc2vec model")
+#     else:
+#         print("no doc2vec model")
+# except Exception as e:
+#     print(e)
 
 # load doc2vec vectors
-try:
-    doc_path = os.path.join(MODELS_DIR, "recipe_vectors.pkl")
-    with open(doc_path, "rb") as f:
-        db_recipes = pickle.load(f)
-except Exception as e:
-    print(e)
+# try:
+#     doc_path = os.path.join(MODELS_DIR, "recipe_vectors.pkl")
+#     with open(doc_path, "rb") as f:
+#         db_recipes = pickle.load(f)
+# except Exception as e:
+#     print(e)
 
 # load word2vec(ingredient) vectors
 try:
@@ -267,6 +267,7 @@ def recommend():
             match_list, missing, full_list = get_ingredient_match_info(user_ingredients, raw_ingreds)
             instructions = parse_instructions_safe(row.get('Instructions', ''))
 
+
             response.append({
                 "id": int(r_id),
                 "title": row['Title'],
@@ -286,7 +287,7 @@ def recommend():
             })
         return jsonify({"results": response})
 
-    # calculate the averg from all input ingredients
+    # calculate the average from all input ingredients
     query_vec = np.average(input_vectors, axis=0, weights=weights)
 
     # iterate over all recipes but only append that that matched the filters
@@ -301,7 +302,7 @@ def recommend():
     results.sort(key=lambda x: x[1], reverse=True)
 
     response = []
-    for r_id, score in results[:20]:
+    for r_id, score in results[:50]:
         row = df_recipes.loc[r_id]
         instructions = parse_instructions_safe(row.get('Instructions', ''))
 
@@ -331,20 +332,18 @@ def recommend():
                      "nuts": bool(row['has_nuts'])}
         })
 
-    if len(response) > 0:
-        print(json.dumps(response[0], indent=4, default=str))
-        print("-" * 50)
+    # if len(response) > 0:
+    #     print(json.dumps(response[0], indent=4, default=str))
+    #     print("-" * 50)
 
-    duration = time.time() - start_time
-    print(duration)
-    return jsonify({"results": response, "debug_info": {"latency_seconds": duration}})
+    # duration = time.time() - start_time
+    # print(duration)
+    return jsonify({"results": response})
 
 
 @app.route('/search', methods=['POST'])
 def search():
-    if d2v_model is None or db_recipes is None:
-        return jsonify({"error": "no model loaded"}), 404
-
+    start_time = time.time()
     data = request.get_json()
     query_text = data.get('query', '')
     user_ingredients = data.get('ingredients', [])
@@ -356,41 +355,139 @@ def search():
 
     filtered_df = df_recipes.copy()
     if wants_vegetarian:
-        filtered_df = df_recipes[df_recipes['is_vegetarian'].astype(str) == 'True']
+        filtered_df = filtered_df[filtered_df['is_vegetarian'].astype(str) == 'True']
     if wants_vegan:
-        filtered_df = df_recipes[df_recipes['is_vegan'].astype(str) == 'True']
+        filtered_df = filtered_df[filtered_df['is_vegan'].astype(str) == 'True']
     if has_nut_allergy:
-        filtered_df = df_recipes[df_recipes['has_nuts'].astype(str) == 'False']
+        filtered_df = filtered_df[filtered_df['has_nuts'].astype(str) == 'False']
 
     valid_recipe_ids = set(filtered_df.index.tolist())
 
+    urgent_ingredient_names = []
+    for item in user_ingredients:
+        if isinstance(item, dict) and float(item.get('weight', 1.0)) > 1.5:
+            urgent_ingredient_names.append(item.get('name', '').lower())
+
     print(f"search query: {query_text} | Filters: {user_filters}")
 
-    tokens = query_text.lower().split()
+    #calculate vector for the query
+    tokens = query_text.lower().replace(",", "").split()
+    query_vectors = []
 
-    if len(tokens) < 5:
-        print("short query detected")
-        inferred_vector = d2v_model.infer_vector(tokens, epochs=200)
-    else:
-        inferred_vector = d2v_model.infer_vector(tokens, epochs=20)
+    for word in tokens:
+        clean = lemmatizer.lemmatize(word.strip())
+        if clean in w2v_model.wv:
+            query_vectors.append(w2v_model.wv[clean])
+        elif word.strip() in w2v_model.wv:
+            query_vectors.append(w2v_model.wv[word.strip()])
+
+    if not query_vectors:
+        # return jsonify({"results": []})
+        sample_size = min(20, len(filtered_df))
+        print("no vectors -> random selection")
+        random_selection = filtered_df.sample(n=sample_size)
+
+        response = []
+        for r_id, row in random_selection.iterrows():
+            raw_ingreds = row.get('Ingredients', [])
+            match_list, missing, full_list = get_ingredient_match_info(user_ingredients, raw_ingreds)
+            instructions = parse_instructions_safe(row.get('Instructions', ''))
+
+
+            response.append({
+                "id": int(r_id),
+                "title": row['Title'],
+                "image": get_image_url(request, row.get('Image_Name')),
+                "score": 0.0,
+                "ingredients_list": full_list,
+                "instructions": instructions,
+                "reasons": {
+                    "matching_items": match_list,
+                    "missing_ingredients": missing
+                },
+                "tags": {
+                    "vegetarian": bool(row['is_vegetarian']),
+                    "vegan": bool(row['is_vegan']),
+                    "nuts": bool(row['has_nuts']),
+                }
+            })
+        return jsonify({"results": response})
+
+    search_intent_vec = np.average(query_vectors, axis=0)
+
+    #vector for the inventory
+    inventory_vectors = []
+    inventory_weights = []
+
+    if user_ingredients:
+        for item in user_ingredients:
+            if isinstance(item, dict):
+                ing_name = item.get('name', '')
+                weight = float(item.get('weight', 1.0))
+            else:
+                ing_name = str(item)
+                weight = 1.0
+
+            clean_ing = lemmatizer.lemmatize(ing_name.lower().strip().replace(" ", "_"))
+
+            if clean_ing in w2v_model.wv:
+                inventory_vectors.append(w2v_model.wv[clean_ing])
+                inventory_weights.append(weight)
+            elif ing_name.lower().strip() in w2v_model.wv:
+                inventory_vectors.append(w2v_model.wv[ing_name.lower().strip()])
+                inventory_weights.append(weight)
+
+    has_inventory_context = len(inventory_vectors) > 0
+
+
 
     candidates = []
 
-    for r_id, r_vec in db_recipes.items():
+    for r_id, r_vec in db_ingredients.items():
         if r_id not in valid_recipe_ids:
             continue
-        score = calculate_similarity(inferred_vector, r_vec)
 
-        if score > 0.4:
-            candidates.append((r_id, score))
+        search_score = calculate_similarity(search_intent_vec, r_vec)
+
+        #check if the search something in common with the recommendation
+        if search_score < 0.45:
+            continue
+
+        final_score = search_score
+
+        if has_inventory_context:
+            row = df_recipes.loc[r_id]
+            raw_ingredients = row.get('Ingredients', [])
+
+            m_list, m_count, f_list = get_ingredient_match_info(user_ingredients, raw_ingredients)
+
+            total_items = len(f_list)
+            if total_items < 3:
+                match_ratio = 0.0
+            else:
+                match_ratio = len(m_list) / total_items
+
+            dynamic_boost = match_ratio * search_score  * 0.8
+
+            final_score = search_score + dynamic_boost
+
+        candidates.append((r_id, final_score))
 
     candidates.sort(key=lambda x: x[1], reverse=True)
-    top_results = candidates[:100]
+    top_candidates = candidates[:20]
+
+
     response = []
-    for r_id, score in top_results:
+    for r_id, score in top_candidates:
         row = df_recipes.loc[r_id]
         instructions = parse_instructions_safe(row.get('Instructions', ''))
+
         m_list, m_count, f_list = get_ingredient_match_info(user_ingredients, row.get('Ingredients', []))
+
+        used_urgent_ingredients = [
+            i for i in m_list
+            if any(urgent in i.lower() for urgent in urgent_ingredient_names)
+        ]
 
         response.append({
             "id": int(r_id),
@@ -401,14 +498,17 @@ def search():
             "reasons": {
                 "matching_items": m_list,
                 "missing_count": int(m_count),
-                "is_boosted": False,
-                "used_urgent_items": []
+                "is_boosted": has_inventory_context,
+                "used_urgent_items": used_urgent_ingredients,
             },
             "ingredients_list": f_list,
-            "tags": {"vegetarian": bool(row.get('is_vegetarian', False)), "vegan": bool(row.get('is_vegan', False))}
+            "tags": {
+                "vegetarian": bool(row.get('is_vegetarian', False)),
+                "vegan": bool(row.get('is_vegan', False))
+            }
         })
-    return jsonify({"results": response})
 
+    return jsonify({"results": response})
 
 @app.route('/recipe/<int:recipe_id>/similar', methods=['GET'])
 def similar(recipe_id):
